@@ -444,6 +444,11 @@ module Squeel
             block.to_sql.should eq standard.to_sql
           end
 
+          it 'joins has_many :through associations' do
+            relation = Person.joins(:authored_article_comments)
+            relation.first.authored_article_comments.first.should eq Comment.first
+          end
+
           it 'joins polymorphic belongs_to associations' do
             relation = Note.joins{notable(Article)}
             relation.to_sql.should match /"notes"."notable_type" = 'Article'/
@@ -565,6 +570,17 @@ module Squeel
             @person.name.should eq 'joe'
           end
 
+          it 'creates through a join model' do
+            Article.transaction do
+              article = Article.first
+              person = article.commenters.create(:name => 'Ernie Miller')
+              person.should be_persisted
+              person.comments.should have(1).comment
+              person.comments.first.article.should eq article
+              raise ::ActiveRecord::Rollback
+            end
+          end
+
         end
 
         describe '#merge' do
@@ -577,11 +593,17 @@ module Squeel
           end
 
           it 'merges relations with a different base' do
-            relation = Person.where{name == 'bob'}.merge(Article.where{title == 'Hello world!'})
+            relation = Person.where{name == 'bob'}.joins(:articles).merge(Article.where{title == 'Hello world!'})
             sql = relation.to_sql
             sql.should match /INNER JOIN "articles" ON "articles"."person_id" = "people"."id"/
             sql.should match /"people"."name" = 'bob'/
             sql.should match /"articles"."title" = 'Hello world!'/
+          end
+
+          it 'does not break hm:t with conditions' do
+            relation = Person.first.condition_article_comments
+            sql = relation.scoped.to_sql
+            sql.should match /"articles"."title" = 'Condition'/
           end
 
         end

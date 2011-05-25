@@ -45,7 +45,6 @@ module Squeel
             r = r.clone
             association_name ||= infer_association_for_relation_merge(r)
             prepare_relation_for_association_merge!(r, association_name)
-            self.joins_values += [association_name] if reflect_on_association(association_name)
           end
 
           super(r)
@@ -64,7 +63,11 @@ module Squeel
         def prepare_relation_for_association_merge!(r, association_name)
           r.where_values.map! {|w| Squeel::Visitors::PredicateVisitor.can_accept?(w) ? {association_name => w} : w}
           r.having_values.map! {|h| Squeel::Visitors::PredicateVisitor.can_accept?(h) ? {association_name => h} : h}
-          r.joins_values.map! {|j| [Symbol, Hash, Nodes::Stub, Nodes::Join].include?(j.class) ? {association_name => j} : j}
+          r.group_values.map! {|g| Squeel::Visitors::AttributeVisitor.can_accept?(g) ? {association_name => g} : g}
+          r.order_values.map! {|o| Squeel::Visitors::AttributeVisitor.can_accept?(o) ? {association_name => o} : o}
+          r.select_values.map! {|s| Squeel::Visitors::AttributeVisitor.can_accept?(s) ? {association_name => s} : s}
+          r.joins_values.map! {|j| [Symbol, Hash, Nodes::Stub, Nodes::Join, Nodes::KeyPath].include?(j.class) ? {association_name => j} : j}
+          r.includes_values.map! {|i| [Symbol, Hash, Nodes::Stub, Nodes::Join, Nodes::KeyPath].include?(i.class) ? {association_name => i} : i}
         end
 
         def build_arel
@@ -269,7 +272,7 @@ module Squeel
           nodes.map { |node|
             case node
             when Arel::Nodes::Equality
-              node
+              node if node.left.relation.name == table_name
             when Arel::Nodes::Grouping
               find_equality_predicates([node.expr])
             when Arel::Nodes::And

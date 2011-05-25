@@ -9,9 +9,11 @@ class Person < ActiveRecord::Base
   belongs_to :parent, :class_name => 'Person', :foreign_key => :parent_id
   has_many   :children, :class_name => 'Person', :foreign_key => :parent_id
   has_many   :articles
+  has_many   :articles_with_condition, :class_name => 'Article', :conditions => {:title => 'Condition'}
   has_many   :comments
+  has_many   :condition_article_comments, :through => :articles_with_condition, :source => :comments
   has_many   :authored_article_comments, :through => :articles,
-             :class_name => 'Comment', :foreign_key => :person_id
+             :source => :comments
   has_many   :notes, :as => :notable
 end
 
@@ -20,6 +22,7 @@ class Article < ActiveRecord::Base
   has_many                :comments
   has_and_belongs_to_many :tags
   has_many   :notes, :as => :notable
+  has_many :commenters, :through => :comments, :source => :person
 end
 
 class Comment < ActiveRecord::Base
